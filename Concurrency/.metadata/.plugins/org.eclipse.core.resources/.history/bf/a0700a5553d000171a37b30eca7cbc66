@@ -1,0 +1,127 @@
+package Assignment;
+
+import java.net.*;
+import java.rmi.Naming;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.util.Date;
+import java.io.*;
+
+public class ClientIMPL extends java.rmi.server.UnicastRemoteObject implements Client {
+
+	private Coordinator mb;
+	private DrawImage app;
+	private String cName;
+	private String cPriority;
+
+	public ClientIMPL(String server_host, String priority, String name) throws RemoteException {
+
+		System.setSecurityManager(new SecurityManager());
+		
+		cPriority = priority;
+		cName = name;
+
+		try {
+			// Socket s = new Socket(server_host, server_port);
+			// InputStream in = s.getInputStream();
+
+			InetAddress hostAddr = InetAddress.getLocalHost();
+			String hostName = hostAddr.getHostName();
+			// BufferedReader bin = new BufferedReader(new
+			// InputStreamReader(in));
+
+			try {
+				mb = (Coordinator) Naming.lookup("rmi://" + server_host + "/MessageServer");
+			} catch (NotBoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			makeDraw(cName);
+
+			synchronized (this) {
+
+				while (true) {
+					mb.request(this, cName);
+					System.out.println(cName + ": Request sent");
+
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						System.out.println("yoyo");
+						notify();
+					}
+					app.startDrawing();
+					mb.release();
+
+					try (FileWriter fw = new FileWriter("clients.txt", true);
+							BufferedWriter bw = new BufferedWriter(fw);
+							PrintWriter out = new PrintWriter(bw)) {
+
+						Date date = new Date();
+
+						out.println("Record from " + cName + " at " + date.toString());
+
+					} catch (IOException e) {
+						// exception handling left as an exercise for the reader
+
+					}
+
+					System.out.println(name + ": Request finished");
+				}
+			}
+
+			// s.close();
+		} catch (java.io.IOException e) {
+			System.out.println(e);
+			System.exit(1);
+		}
+	}
+
+	public boolean reply() {
+
+		synchronized (this) {
+
+			notify();
+			return true;
+		}
+	}
+	
+	public String getPriority(){
+		
+		return cPriority;
+	}
+		
+		
+
+	private void makeDraw(String name) {
+		System.out.println("Main in ClientIMPL starting window");
+		app = new DrawImage();
+		app.pack();
+		app.setLocation(10, 20);
+		app.setTitle(name);
+		app.setVisible(true);
+		System.out.println("Main in ClientIMPL finished window");
+
+	}
+
+	public static void main(String args[]) {
+
+		if ((args.length < 1) || (args.length > 3)) {
+			System.out.println("Usage: [host] <port>");
+			System.exit(1);
+		}
+		
+		String server_host = args[0];
+		String priority = args[1];
+		String name = args[2];
+
+		try {
+			Client client1 = new ClientIMPL(server_host, priority, name);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		// Client client2 = new ClientIMPL(server_host, name);
+	}
+}

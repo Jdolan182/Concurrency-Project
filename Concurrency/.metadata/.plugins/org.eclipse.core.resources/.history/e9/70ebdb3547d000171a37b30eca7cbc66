@@ -1,0 +1,6 @@
+package dislab3;
+
+public interface Client extends java.rmi.Remote {
+
+	public boolean reply() throws java.rmi.RemoteException;
+}
